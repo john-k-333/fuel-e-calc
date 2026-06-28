@@ -120,8 +120,9 @@
   <div class="wrap">
     <div class="card">
       <div class="seg" id="mode">
-        <button data-mode="m1" class="active">Только&nbsp;М1</button>
-        <button data-mode="full">М1&nbsp;+&nbsp;бензин<br>до&nbsp;полного</button>
+        <button data-mode="m1" class="active">Долить<br>М1</button>
+        <button data-mode="full">М1+бензин<br>до полного</button>
+        <button data-mode="spirit">Бензин<br>под спирт</button>
       </div>
       <div class="seg-desc" id="modeDesc">Доливаю только М1 к тому, что есть в баке.</div>
 
@@ -130,6 +131,11 @@
 
       <label>Датчик сейчас показывает E (E₀)</label>
       <input id="e0" type="number" inputmode="decimal" placeholder="напр. 6" value="6">
+
+      <div id="msRow" style="display:none">
+        <label>Спирт (М1) с собой, л</label>
+        <input id="ms" type="number" inputmode="decimal" placeholder="напр. 10.4" value="10.4">
+      </div>
 
       <label>Хочу получить E (цель)</label>
       <input id="et" type="number" inputmode="decimal" placeholder="напр. 35" value="35">
@@ -187,19 +193,24 @@ let mode = "m1";
 const $ = id => document.getElementById(id);
 const num = id => parseFloat(($(id).value+"").replace(",","."));
 
+const DESC = {
+  m1: "Доливаю только М1 к тому, что есть в баке.",
+  full: "Доливаю М1 и бензин, чтобы добить бак до "+TANK+" л на нужном E.",
+  spirit: "У меня есть N л спирта — сколько бензина долить до нужного E."
+};
+
 document.querySelectorAll("#mode button").forEach(b=>{
   b.addEventListener("click",()=>{
     document.querySelectorAll("#mode button").forEach(x=>x.classList.remove("active"));
     b.classList.add("active");
     mode = b.dataset.mode;
-    $("modeDesc").textContent = mode==="m1"
-      ? "Доливаю только М1 к тому, что есть в баке."
-      : "Доливаю М1 и бензин, чтобы добить бак до "+TANK+" л на нужном E.";
+    $("modeDesc").textContent = DESC[mode];
+    $("msRow").style.display = mode==="spirit" ? "block" : "none";
     calc();
   });
 });
 
-["v0","e0","et","eg","em"].forEach(id=>$(id).addEventListener("input",calc));
+["v0","e0","et","eg","em","ms"].forEach(id=>$(id).addEventListener("input",calc));
 
 function gallons(l){
   const g = Math.floor(l/4.7);
@@ -238,7 +249,7 @@ function calc(){
       '<div class="big">'+x.toFixed(1)+'<span> л М1</span></div>'+
       '<div class="gallons">≈ '+gallons(x)+'</div>'+
       '<div class="line">станет ~'+fin.toFixed(0)+' л в баке, E'+Et+'</div>'+over;
-  } else {
+  } else if(mode==="full"){
     const space = TANK - V0;
     if(space<=0){
       out.className="result err"; out.innerHTML='<div class="big">Бак уже полный</div>'; return;
@@ -260,6 +271,25 @@ function calc(){
       '<div class="big">'+xM1.toFixed(1)+'<span> л М1</span></div>'+
       '<div class="gallons">≈ '+gallons(xM1)+'</div>'+
       '<div class="line">+ '+xGas.toFixed(1)+' л бензина → полный бак ('+TANK+' л), E'+Et+'</div>';
+  } else {
+    const M = num("ms");
+    if(isNaN(M) || M<0){
+      out.className="result err"; out.innerHTML='<div class="big">Введи, сколько спирта с собой</div>'; return;
+    }
+    const eNoGas = (E0*V0 + Em*M)/(V0+M);
+    if(eNoGas < Et){
+      out.className="result err";
+      out.innerHTML='<div class="big">Спирта мало для E'+Et+'</div><div class="line">Даже с этим спиртом и без бензина выйдет только ~E'+eNoGas.toFixed(0)+'. Долей ещё М1 или снизь цель.</div>';
+      return;
+    }
+    const G = (E0*V0 + Em*M - Et*(V0+M))/(Et-Eg);
+    const fin = V0+M+G;
+    const over = fin>TANK ? '<div class="line" style="color:var(--warn)">⚠ итого '+fin.toFixed(1)+' л — больше бака '+TANK+' л, всё не влезет</div>' : "";
+    out.className="result";
+    out.innerHTML =
+      '<div class="big">'+G.toFixed(1)+'<span> л бензина</span></div>'+
+      '<div class="line">влей весь спирт ('+M.toFixed(1)+' л М1) + '+G.toFixed(1)+' л бензина</div>'+
+      '<div class="line">станет ~'+fin.toFixed(0)+' л в баке, E'+Et+'</div>'+over;
   }
 }
 
