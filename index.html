@@ -1,0 +1,269 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover, maximum-scale=1.0">
+<meta name="theme-color" content="#0b0e14">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="E-калькулятор">
+<title>E-калькулятор (М1 долив)</title>
+<style>
+  :root{
+    --bg:#0b0e14; --card:#151a23; --card2:#1c2230; --line:#27303f;
+    --txt:#e7ecf3; --muted:#8b97a8; --acc:#3ea6ff; --acc2:#22c55e; --warn:#f59e0b;
+    --safe-t:env(safe-area-inset-top,0px);
+    --safe-b:env(safe-area-inset-bottom,0px);
+  }
+  *{box-sizing:border-box; -webkit-tap-highlight-color:transparent}
+  html,body{margin:0; padding:0; width:100%; overflow-x:hidden}
+  body{
+    background:var(--bg); color:var(--txt);
+    font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif;
+    line-height:1.4; font-size:16px;
+    padding:0 0 calc(24px + var(--safe-b));
+    max-width:520px; margin:0 auto; -webkit-text-size-adjust:100%;
+  }
+  .wrap{padding:0 14px}
+
+  header{
+    padding:calc(10px + var(--safe-t)) 14px 8px;
+  }
+  h1{font-size:18px; margin:0; font-weight:700}
+  .sub{color:var(--muted); font-size:12px; margin-top:2px}
+
+  /* Закреплённый результат — всегда виден */
+  .sticky{
+    position:sticky; top:0; z-index:10;
+    background:var(--bg);
+    padding:6px 14px 10px;
+  }
+  .result{
+    background:linear-gradient(160deg,#16241a,#10301f); border:1px solid #1f5132;
+    border-radius:16px; padding:14px 16px; text-align:center;
+    box-shadow:0 6px 18px rgba(0,0,0,.35);
+  }
+  .result .big{font-size:32px; font-weight:800; color:var(--acc2); line-height:1.1}
+  .result .big span{font-size:15px; color:var(--muted); font-weight:600}
+  .result .gallons{font-size:13px; color:var(--muted); margin-top:4px}
+  .result .line{font-size:13px; color:var(--txt); margin-top:6px}
+  .result.err{background:#2a1820; border-color:#5a2233}
+  .result.err .big{color:var(--warn); font-size:17px; line-height:1.25}
+
+  .card{
+    background:var(--card); border:1px solid var(--line); border-radius:16px;
+    padding:14px; margin-bottom:12px;
+  }
+  .seg{display:flex; gap:8px; margin-bottom:6px}
+  .seg button{
+    flex:1; min-width:0; padding:11px 6px; font-size:13px; border-radius:12px; cursor:pointer;
+    background:var(--card2); color:var(--muted); border:1px solid var(--line); font-weight:600;
+    line-height:1.15;
+  }
+  .seg button.active{background:var(--acc); color:#06121f; border-color:var(--acc)}
+  .seg-desc{font-size:12px; color:var(--muted); margin:6px 2px 2px}
+
+  label{display:block; font-size:13px; color:var(--muted); margin:14px 0 6px}
+  input[type=number]{
+    width:100%; font-size:19px; padding:13px 14px; border-radius:12px;
+    border:1px solid var(--line); background:var(--card2); color:var(--txt);
+    -moz-appearance:textfield;
+  }
+  input::-webkit-outer-spin-button,input::-webkit-inner-spin-button{-webkit-appearance:none; margin:0}
+  input:focus{outline:none; border-color:var(--acc)}
+
+  details{margin:0}
+  summary{cursor:pointer; color:var(--acc); font-size:14px; padding:4px 0; list-style:none}
+  summary::-webkit-details-marker{display:none}
+  summary::before{content:"⚙ "; }
+  .cal{display:flex; gap:10px; margin-top:10px}
+  .cal>div{flex:1; min-width:0}
+  .cal label{margin-top:0}
+  .note{font-size:12px; color:var(--muted); margin-top:10px}
+
+  /* Шпаргалка — статичная, видна даже без JS (в режиме просмотра) */
+  .cheat-h{font-weight:700; font-size:15px; margin:0 0 2px}
+  .cheat-sub{font-size:12px; color:var(--muted); margin-bottom:12px}
+  .cheat-lbl{font-size:13px; color:var(--muted); margin:14px 0 6px}
+  .cheat-lbl b{color:var(--txt)}
+  table.ref{width:100%; border-collapse:collapse; table-layout:fixed}
+  table.ref th, table.ref td{
+    border:1px solid var(--line); padding:8px 2px; text-align:center; font-size:14px;
+  }
+  table.ref th{color:var(--muted); font-weight:600; font-size:12px}
+  table.ref td.k, table.ref th.k{color:var(--muted); font-size:12px}
+  table.ref .hl{color:var(--acc2); font-weight:700; background:rgba(34,197,94,.07)}
+  table.ref th.hl{color:var(--acc2)}
+
+  .foot{font-size:11px; color:var(--muted); text-align:center; margin-top:16px; padding:0 14px}
+</style>
+</head>
+<body>
+  <header>
+    <h1>E-калькулятор · долив М1</h1>
+    <div class="sub">BMW X3M · бак 65 л · метанол М1</div>
+  </header>
+
+  <div class="sticky">
+    <div id="out" class="result">
+      <div class="big" style="font-size:15px;color:var(--muted);line-height:1.35">
+        Точный счёт работает в <b style="color:var(--acc)">Safari</b>.<br>В режиме просмотра смотри <b style="color:var(--acc2)">Шпаргалку</b> ниже ↓
+      </div>
+    </div>
+  </div>
+  <noscript>
+    <div class="wrap"><div class="card" style="border-color:#5a2233;background:#2a1820">
+      JavaScript выключен. Открой этот файл в браузере Safari/Chrome, иначе калькулятор не считает.
+    </div></div>
+  </noscript>
+
+  <div class="wrap">
+    <div class="card">
+      <div class="seg" id="mode">
+        <button data-mode="m1" class="active">Только&nbsp;М1</button>
+        <button data-mode="full">М1&nbsp;+&nbsp;бензин<br>до&nbsp;полного</button>
+      </div>
+      <div class="seg-desc" id="modeDesc">Доливаю только М1 к тому, что есть в баке.</div>
+
+      <label>Сейчас в баке, л (V₀)</label>
+      <input id="v0" type="number" inputmode="decimal" placeholder="напр. 30" value="30">
+
+      <label>Датчик сейчас показывает E (E₀)</label>
+      <input id="e0" type="number" inputmode="decimal" placeholder="напр. 6" value="6">
+
+      <label>Хочу получить E (цель)</label>
+      <input id="et" type="number" inputmode="decimal" placeholder="напр. 35" value="35">
+    </div>
+
+    <div class="card">
+      <div class="cheat-h">Шпаргалка</div>
+      <div class="cheat-sub">Готовые цифры — видны даже в режиме просмотра (без JS). Расчёт при текущем датчике ≈ E6.</div>
+
+      <div class="cheat-lbl">Долить <b>до полного бака (65 л)</b> + бензин до полного:</div>
+      <table class="ref">
+        <tr><th>цель</th><th>E25</th><th>E30</th><th class="hl">E35</th><th>E40</th></tr>
+        <tr><td class="k">л М1</td><td>10.2</td><td>12.8</td><td class="hl">15.4</td><td>18.0</td></tr>
+      </table>
+
+      <div class="cheat-lbl">Долить <b>только М1</b> (л) — по литрам в баке и цели E:</div>
+      <table class="ref">
+        <tr><th class="k">в баке ↓</th><th>E25</th><th>E30</th><th class="hl">E35</th><th>E40</th></tr>
+        <tr><td class="k">15 л</td><td>2.7</td><td>3.6</td><td class="hl">4.6</td><td>5.7</td></tr>
+        <tr><td class="k">20 л</td><td>3.6</td><td>4.8</td><td class="hl">6.1</td><td>7.6</td></tr>
+        <tr><td class="k">25 л</td><td>4.5</td><td>6.0</td><td class="hl">7.6</td><td>9.4</td></tr>
+        <tr><td class="k">30 л</td><td>5.4</td><td>7.2</td><td class="hl">9.2</td><td>11.3</td></tr>
+        <tr><td class="k">35 л</td><td>6.3</td><td>8.4</td><td class="hl">10.7</td><td>13.2</td></tr>
+        <tr><td class="k">40 л</td><td>7.2</td><td>9.6</td><td class="hl">12.2</td><td>15.1</td></tr>
+      </table>
+    </div>
+
+    <div class="card">
+      <details>
+        <summary>Калибровка (если датчик врёт)</summary>
+        <div class="cal">
+          <div>
+            <label>E бензина</label>
+            <input id="eg" type="number" inputmode="decimal" value="5">
+          </div>
+          <div>
+            <label>E чистого М1</label>
+            <input id="em" type="number" inputmode="decimal" value="130">
+          </div>
+        </div>
+        <div class="note">По умолчанию 5 и 130 — подгон под твои замеры (1 галлон → e14, гонка → e34). Если фактический E после долива стабильно отличается, подкрути «E чистого М1».</div>
+      </details>
+    </div>
+  </div>
+
+  <div class="foot">
+    Канистры: 1 галлон ≈ 4.7 л · 2 галлона + 1 л = 10.4 л<br>
+    Модель приблизительная (±2 E). Добавь на экран «Домой» — работает офлайн.
+  </div>
+
+<script>
+const TANK = 65;
+let mode = "m1";
+
+const $ = id => document.getElementById(id);
+const num = id => parseFloat(($(id).value+"").replace(",","."));
+
+document.querySelectorAll("#mode button").forEach(b=>{
+  b.addEventListener("click",()=>{
+    document.querySelectorAll("#mode button").forEach(x=>x.classList.remove("active"));
+    b.classList.add("active");
+    mode = b.dataset.mode;
+    $("modeDesc").textContent = mode==="m1"
+      ? "Доливаю только М1 к тому, что есть в баке."
+      : "Доливаю М1 и бензин, чтобы добить бак до "+TANK+" л на нужном E.";
+    calc();
+  });
+});
+
+["v0","e0","et","eg","em"].forEach(id=>$(id).addEventListener("input",calc));
+
+function gallons(l){
+  const g = Math.floor(l/4.7);
+  const rest = l - g*4.7;
+  let s = "";
+  if(g>0) s += g+" галл";
+  if(rest>0.05) s += (s?" + ":"")+rest.toFixed(1)+" л";
+  return s || "0";
+}
+
+function calc(){
+  const out = $("out");
+  const V0=num("v0"), E0=num("e0"), Et=num("et"), Eg=num("eg"), Em=num("em");
+
+  if([V0,E0,Et,Eg,Em].some(isNaN)){
+    out.className="result err"; out.innerHTML='<div class="big">Заполни поля</div>'; return;
+  }
+  if(Et>=Em){
+    out.className="result err"; out.innerHTML='<div class="big">Цель E ≥ E чистого М1 ('+Em+')<br>недостижимо</div>'; return;
+  }
+  if(Et<=Eg){
+    out.className="result err"; out.innerHTML='<div class="big">Цель ниже бензина ('+Eg+')<br>М1 не нужен</div>'; return;
+  }
+
+  if(mode==="m1"){
+    if(Et<E0){
+      out.className="result err";
+      out.innerHTML='<div class="big">Цель ниже текущего E ('+E0+')</div><div class="line">Доливом М1 нельзя понизить — разбавь бензином.</div>';
+      return;
+    }
+    const x = V0*(Et-E0)/(Em-Et);
+    const fin = V0+x;
+    const over = fin>TANK ? '<div class="line" style="color:var(--warn)">⚠ итого '+fin.toFixed(1)+' л — больше бака '+TANK+' л, не влезет</div>' : "";
+    out.className="result";
+    out.innerHTML =
+      '<div class="big">'+x.toFixed(1)+'<span> л М1</span></div>'+
+      '<div class="gallons">≈ '+gallons(x)+'</div>'+
+      '<div class="line">станет ~'+fin.toFixed(0)+' л в баке, E'+Et+'</div>'+over;
+  } else {
+    const space = TANK - V0;
+    if(space<=0){
+      out.className="result err"; out.innerHTML='<div class="big">Бак уже полный</div>'; return;
+    }
+    const xM1 = (TANK*Et - E0*V0 - Eg*(TANK-V0))/(Em-Eg);
+    const xGas = space - xM1;
+    if(xM1<0){
+      out.className="result err";
+      out.innerHTML='<div class="big">Цель слишком низкая</div><div class="line">До полного на E'+Et+' М1 не нужен — лей просто бензин.</div>';
+      return;
+    }
+    if(xGas<0){
+      out.className="result err";
+      out.innerHTML='<div class="big">Не хватит места</div><div class="line">Для E'+Et+' нужно '+xM1.toFixed(1)+' л М1, а свободно лишь '+space.toFixed(1)+' л. Сначала выкатай больше.</div>';
+      return;
+    }
+    out.className="result";
+    out.innerHTML =
+      '<div class="big">'+xM1.toFixed(1)+'<span> л М1</span></div>'+
+      '<div class="gallons">≈ '+gallons(xM1)+'</div>'+
+      '<div class="line">+ '+xGas.toFixed(1)+' л бензина → полный бак ('+TANK+' л), E'+Et+'</div>';
+  }
+}
+
+calc();
+</script>
+</body>
+</html>
